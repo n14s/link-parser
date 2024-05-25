@@ -1,0 +1,6 @@
+github.com/DennisVis/link v0.0.0-20180823153647-51451b3c4c24 h1:qUqvbeH/webUJOWsATO3pN5wsJN/1mOmSGb6kAuNiNg=
+github.com/DennisVis/link v0.0.0-20180823153647-51451b3c4c24/go.mod h1:v32AnV7p/mYJTsTMnjPXlTz/oD+VGw/09xGjQH5wtlU=
+github.com/gophercises/link v0.0.0-20190722124937-f605b2e9978a h1:rpzxcqOVxh3ZovY6lYi04U0UOhEy9u949c/oEulBACk=
+github.com/gophercises/link v0.0.0-20190722124937-f605b2e9978a/go.mod h1:n63lFrrYe9kwYBozpiLNqthsxPSLp8rz/q0jC53qpxo=
+golang.org/x/net v0.25.0 h1:d/OCCoBEUq33pjydKrGQhw7IlUPI2Oylr+8qLx49kac=
+golang.org/x/net v0.25.0/go.mod h1:JkAGAh7GEvH74S6FOH42FLoXpXbE/aqXSrIQjXgsiwM=
