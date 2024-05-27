@@ -1,8 +1,10 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"strings"
 
 	"golang.org/x/net/html"
@@ -28,8 +30,17 @@ var htmlExample = `
 </html>
 `
 
+const (
+	urlTreibhaus = "https://treibhaus.at/programm"
+)
+
 func main() {
-	r := strings.NewReader(htmlExample)
+	htmlString, err := fetchHtml(urlTreibhaus)
+	if err != nil {
+		return
+	}
+
+	r := strings.NewReader(htmlString)
 	links, err := Parse(r)
 	if err != nil {
 		panic(err)
@@ -50,6 +61,27 @@ type Event struct {
 	Venue       string
 	Date        string
 	Description string
+}
+
+func fetchHtml(url string) (string, error) {
+	response, err := http.Get(url)
+	if err != nil {
+		fmt.Println(err)
+		return "", err
+	}
+	if response.StatusCode != 200 {
+		return "", errors.New("request did not respond 200")
+	}
+
+	bytes, err := io.ReadAll(response.Body)
+	if err != nil {
+		return "", errors.New("failed to read response")
+	}
+	defer response.Body.Close()
+
+	htmlString := string(bytes)
+
+	return htmlString, nil
 }
 
 // Parse will take in an HTML document and will return a slice of links
@@ -80,6 +112,51 @@ func buildLink(n *html.Node) Link {
 	link.Text = extractText(n)
 
 	return link
+}
+
+func ParseEvents(r io.Reader) ([]Event, error) {
+	doc, err := html.Parse(r)
+	if err != nil {
+		return nil, err
+	}
+	nodes := treibhausEventNodes(doc)
+
+	var events []Event
+	for _, n := range nodes {
+		events = append(events, buildTreibhausEvent(n))
+	}
+
+	return events, nil
+}
+
+func treibhausEventNodes(n *html.Node) []*html.Node {
+	if n.Type == html.ElementNode && n.Data == "div" {
+		for _, a := range n.Attr {
+			if a.Key == "id" && strings.Contains(a.Val, "event-") {
+				return []*html.Node{n}
+			}
+		}
+	}
+
+	var nodes []*html.Node
+	for c := n.FirstChild; c != nil; c = c.NextSibling {
+		nodes = append(nodes, linkNodes(c)...)
+	}
+	return nodes
+}
+
+func buildTreibhausEvent(n *html.Node) Event {
+	var event Event
+
+	fmt.Println(n)
+
+	return event
+}
+
+func buildPmkEvent(n *html.Node) Event {
+	var event Event
+
+	return event
 }
 
 func extractText(n *html.Node) string {
