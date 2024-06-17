@@ -10,42 +10,26 @@ import (
 	"golang.org/x/net/html"
 )
 
-var htmlExample = `
-<html>
-<head>
-  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
-</head>
-<body>
-  <h1>Social stuffs</h1>
-  <div>
-    <a href="https://www.twitter.com/joncalhoun">
-      Check me out on twitter
-      <i class="fa fa-twitter" aria-hidden="true">watup</i>
-    </a>
-    <a href="https://github.com/gophercises">
-      Gophercises is on <strong>Github</strong>!
-    </a>
-  </div>
-</body>
-</html>
-`
-
 const (
 	urlTreibhaus = "https://treibhaus.at/programm"
+	urlPmk       = "https://www.pmk.or.at/termine"
 )
 
 func main() {
-	htmlString, err := fetchHtml(urlTreibhaus)
+	htmlString, err := fetchHtml(urlPmk)
 	if err != nil {
 		return
 	}
 
 	r := strings.NewReader(htmlString)
-	links, err := Parse(r)
+	events, err := ParseEvents(r)
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("%+v\n", links)
+
+	for _, e := range events {
+		fmt.Printf("%+v\n", e)
+	}
 }
 
 // Might move to a seperate package later
@@ -60,6 +44,7 @@ type Link struct {
 type Event struct {
 	Venue       string
 	Date        string
+	Title       string
 	Description string
 }
 
@@ -119,11 +104,16 @@ func ParseEvents(r io.Reader) ([]Event, error) {
 	if err != nil {
 		return nil, err
 	}
-	nodes := treibhausEventNodes(doc)
+	// nodes := treibhausEventNodes(doc)
+	// var events []Event
+	// for _, n := range nodes {
+	// 	events = append(events, buildTreibhausEvent(n))
+	// }
 
+	nodes := pmkEventNodes(doc)
 	var events []Event
 	for _, n := range nodes {
-		events = append(events, buildTreibhausEvent(n))
+		events = append(events, buildPmkEvent(n))
 	}
 
 	return events, nil
@@ -140,21 +130,191 @@ func treibhausEventNodes(n *html.Node) []*html.Node {
 
 	var nodes []*html.Node
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		nodes = append(nodes, linkNodes(c)...)
+		nodes = append(nodes, treibhausEventNodes(c)...)
+	}
+	return nodes
+}
+
+func pmkEventNodes(n *html.Node) []*html.Node {
+	if n.Type == html.ElementNode && n.Data == "div" {
+		for _, a := range n.Attr {
+			if a.Key == "class" && strings.Contains(a.Val, "layout--pmktermin") {
+				return []*html.Node{n}
+			}
+		}
+	}
+
+	var nodes []*html.Node
+	for c := n.FirstChild; c != nil; c = c.NextSibling {
+		nodes = append(nodes, pmkEventNodes(c)...)
 	}
 	return nodes
 }
 
 func buildTreibhausEvent(n *html.Node) Event {
+	// Find title node
 	var event Event
 
-	fmt.Println(n)
+	// Get Date
+	if n == nil {
+		return Event{}
+	}
+	c1 := n.FirstChild
+	if c1 == nil {
+		return Event{}
+	}
+	c2 := c1.FirstChild
+	if c2 == nil {
+		return Event{}
+	}
+	c3 := c2.FirstChild
+	if c3 == nil {
+		return Event{}
+	}
+	c4 := c3.FirstChild
+	if c4 == nil {
+		return Event{}
+	}
+	c5 := c4.FirstChild
+	if c5 == nil {
+		return Event{}
+	}
+	c6 := c5.FirstChild
+	if c6 == nil {
+		return Event{}
+	}
+
+	c7 := ""
+	for _, a := range c6.Attr {
+		if a.Key == "content" {
+			c7 = a.Val
+		}
+	}
+
+	// Get Title. Starts halfway down the Date Tree
+	t1 := c2.NextSibling
+	if t1 == nil {
+		return Event{}
+	}
+	t2 := t1.FirstChild
+	if t2 == nil {
+		return Event{}
+	}
+	t3 := t2.FirstChild
+	if t3 == nil {
+		return Event{}
+	}
+	t4 := t3.FirstChild
+	if t4 == nil {
+		return Event{}
+	}
+	t5 := t4.Data
+
+	// Get Description. Starts halfway down the Title Tree
+	d1 := t2.NextSibling
+	if d1 == nil {
+		return Event{}
+	}
+	d2 := d1.FirstChild
+	if d2 == nil {
+		return Event{}
+	}
+	d3 := d2.FirstChild
+	if d3 == nil {
+		return Event{}
+	}
+	d4 := d3.Data
+
+	event.Date = c7
+	event.Title = t5
+	event.Description = d4
 
 	return event
 }
 
+// Search recursively for a node with the attribute datetime. When found return the node
+func pmkDateNode(n *html.Node) *html.Node {
+	if n.Type == html.ElementNode && n.Data == "time" {
+		for _, a := range n.Attr {
+			if a.Key == "datetime" {
+				return n
+			}
+		}
+	}
+
+	for c := n.FirstChild; c != nil; c = c.NextSibling {
+		foundNode := pmkDateNode(c)
+		if foundNode != nil {
+			return foundNode
+		}
+	}
+
+	return nil
+}
+
+// Search recursively for a node with the title class. When found return the node
+func pmkTitleNode(n *html.Node) *html.Node {
+	if n.Type == html.ElementNode && n.Data == "div" {
+		for _, a := range n.Attr {
+			if a.Key == "class" && strings.Contains(a.Val, "field--name-field-titel") {
+				return n
+			}
+		}
+	}
+
+	for c := n.FirstChild; c != nil; c = c.NextSibling {
+		foundNode := pmkTitleNode(c)
+		if foundNode != nil {
+			return foundNode
+		}
+	}
+
+	return nil
+}
+
+// Search recursively for a node with the description class. When found return the node
+func pmkDescriptionNode(n *html.Node) *html.Node {
+	if n.Type == html.ElementNode && n.Data == "div" {
+		for _, a := range n.Attr {
+			if a.Key == "class" && strings.Contains(a.Val, "field--type-text-with-summary") {
+				return n
+			}
+		}
+	}
+
+	for c := n.FirstChild; c != nil; c = c.NextSibling {
+		foundNode := pmkDescriptionNode(c)
+		if foundNode != nil {
+			return foundNode
+		}
+	}
+
+	return nil
+}
+
 func buildPmkEvent(n *html.Node) Event {
 	var event Event
+
+	// Get date
+	dateNode := pmkDateNode(n)
+	date := ""
+	for _, a := range dateNode.Attr {
+		if a.Key == "datetime" {
+			date = a.Val
+		}
+	}
+
+	// Get title
+	titleNode := pmkTitleNode(n)
+	title := extractText(titleNode)
+
+	// Get description
+	descriptionNode := pmkDescriptionNode(n)
+	description := extractText(descriptionNode)
+
+	event.Date = date
+	event.Title = title
+	event.Description = description
 
 	return event
 }
